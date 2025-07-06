@@ -21,19 +21,19 @@ type DeployRequest struct {
 func DeployHandler(w http.ResponseWriter, r *http.Request) {
 	ip := getRemoteIP(r)
 
-	// Verify JWT using Authorization header
-	pubKeyPath := os.Getenv("JWT_PUBLIC_KEY_PATH")
-	if pubKeyPath == "" {
-		log.Error("JWT_PUBLIC_KEY_PATH environment variable not set; shutting down")
-		os.Exit(1)
+	// this envar is verified at init() so it should be there.
+	jwtKeyPath := os.Getenv("JWT_PUBLIC_KEY_PATH")
+	if jwtKeyPath == "" {
+		log.Error("JWT_PUBLIC_KEY_PATH environment variable not set")
+		http.Error(w, "server configuration error", http.StatusInternalServerError)
+		return
 	}
-
-	if err := auth.VerifyJWTFromHeader(r.Header.Get("Authorization"), pubKeyPath); err != nil {
+	issuer, err := auth.VerifyJWTFromHeader(r.Header.Get("Authorization"), jwtKeyPath)
+	if err != nil {
 		log.WithError(err).WithField("ip", ip).Warn("unauthorized deploy attempt")
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
-
 	// Read and decode base64-encoded JSON payload
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -59,9 +59,10 @@ func DeployHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.WithFields(log.Fields{
 		"ip":      ip,
+		"iss":     issuer,
 		"service": req.Service,
 		"image":   req.Image,
-	}).Info("received deploy request")
+	}).Info("received authenticated deploy request")
 
 	fmt.Fprintf(w, "deploy request accepted for service %s using image %s\n", req.Service, req.Image)
 }

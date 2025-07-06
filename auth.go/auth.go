@@ -14,29 +14,39 @@ var (
 )
 
 // VerifyJWTFromHeader parses and verifies a JWT using the Authorization header and public key
-func VerifyJWTFromHeader(header string, pubKeyPath string) error {
+func VerifyJWTFromHeader(header string, pubKeyPath string) (string, error) {
 	if header == "" {
-		return ErrMissingAuthHeader
+		return "", ErrMissingAuthHeader
 	}
 
 	parts := strings.SplitN(header, " ", 2)
 	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-		return ErrInvalidJWT
+		return "", ErrInvalidJWT
 	}
 
 	token := parts[1]
 
 	pub, err := os.ReadFile(pubKeyPath)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	parsedToken, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
 		return jwt.ParseRSAPublicKeyFromPEM(pub)
 	})
 	if err != nil || !parsedToken.Valid {
-		return ErrInvalidJWT
+		return "", ErrInvalidJWT
 	}
 
-	return nil
+	claims, ok := parsedToken.Claims.(jwt.MapClaims)
+	if !ok {
+		return "", ErrInvalidJWT
+	}
+
+	iss, ok := claims["iss"].(string)
+	if !ok {
+		return "", ErrInvalidJWT
+	}
+
+	return iss, nil
 }

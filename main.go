@@ -10,6 +10,13 @@ import (
 	"github.com/zacsketches/deployer-service/logging"
 )
 
+func init() {
+	JWTKeyPath := os.Getenv("JWT_PUBLIC_KEY_PATH")
+	if JWTKeyPath == "" {
+		log.Fatal("JWT_PUBLIC_KEY_PATH environment variable not set; aborting startup")
+	}
+}
+
 func main() {
 	logging.Setup()
 
