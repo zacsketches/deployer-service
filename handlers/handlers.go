@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/apex/log"
+	"github.com/zacsketches/deployer-service/auth.go"
 )
 
 type DeployRequest struct {
@@ -19,16 +21,20 @@ type DeployRequest struct {
 func DeployHandler(w http.ResponseWriter, r *http.Request) {
 	ip := getRemoteIP(r)
 
-	if r.Method != http.MethodPost {
-		log.WithFields(log.Fields{
-			"method": r.Method,
-			"ip":     ip,
-			"path":   r.URL.Path,
-		}).Warn("invalid method on /deploy")
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	// Verify JWT using Authorization header
+	pubKeyPath := os.Getenv("JWT_PUBLIC_KEY_PATH")
+	if pubKeyPath == "" {
+		log.Error("JWT_PUBLIC_KEY_PATH environment variable not set; shutting down")
+		os.Exit(1)
+	}
+
+	if err := auth.VerifyJWTFromHeader(r.Header.Get("Authorization"), pubKeyPath); err != nil {
+		log.WithError(err).WithField("ip", ip).Warn("unauthorized deploy attempt")
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 
+	// Read and decode base64-encoded JSON payload
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		log.WithError(err).Error("failed to read request body")
@@ -40,15 +46,14 @@ func DeployHandler(w http.ResponseWriter, r *http.Request) {
 	decoded, err := base64.StdEncoding.DecodeString(strings.TrimSpace(string(body)))
 	if err != nil {
 		log.WithError(err).Error("failed to decode base64 payload")
-		http.Error(w, "invalid base64 input", http.StatusBadRequest)
+		http.Error(w, "invalid base64", http.StatusBadRequest)
 		return
 	}
 
-	// Expecting a JSON payload inside the base64 string
 	var req DeployRequest
 	if err := json.Unmarshal(decoded, &req); err != nil {
-		log.WithError(err).Error("invalid JSON in base64 string")
-		http.Error(w, "invalid JSON", http.StatusBadRequest)
+		log.WithError(err).Error("invalid json in base64 string")
+		http.Error(w, "invalid json", http.StatusBadRequest)
 		return
 	}
 
