@@ -20,10 +20,12 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.22'
-
+      
+      # NOTE: CGO_ENABLED=0 produces a statically compiled binary that avoids
+      # runtime errors I was getting on Amazon Linux 2
       - name: Build for Amazon Linux 2 (linux/amd64)
         run: |
-          GOOS=linux GOARCH=amd64 go build -o deployer-service .
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o deployer-service .
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
