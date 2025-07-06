@@ -14,6 +14,7 @@ func main() {
 	logging.Setup()
 
 	http.HandleFunc("/health", handlers.HealthHandler)
+	http.HandleFunc("/deploy", handlers.DeployHandler)
 
 	port := "8686"
 	if envPort := os.Getenv("PORT"); envPort != "" {
