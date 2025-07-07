@@ -16,18 +16,18 @@ Then cut & paste output into
 curl -X POST http://$IP/deploy -d 'eyJzZXJ2aWNlIjoiZnJvbnRlbmQiLCJpbWFnZSI6IjEyMzQ1Njc4OS5ka3IuZWNyLnVzLXdlc3QtMi5hbWF6b25hd3MuY29tL2Zyb250ZW5kOmxhdGVzdCJ9'
 ```
 - [x] Build a GitHub action in a different project and test that the webhook hits the `/deploy` endpoint.
-- [ ] 🔒 Add JWT validation (via http://github.com/zacsketches/go-jwt for compatibility with GitHub action and AWS Linux 2) Test by setting up a `/test-keys` folder and including `private.pem, public.pem` and `wrong-private.pem`. Then test various combinations of the deploy handler to ensure it validates for the correct keys and refuses for the wrong ones.
+- [x] 🔒 Add JWT validation (via http://github.com/zacsketches/go-jwt for compatibility with GitHub action and AWS Linux 2) Test by setting up a `/test-keys` folder and including `private.pem, public.pem` and `wrong-private.pem`. Then test various combinations of the deploy handler to ensure it validates for the correct keys and refuses for the wrong ones.
 ```bash
 jwt sign --key ./test-keys/private.pem > good-token.jwt
 jwt sign --key ./test-keys/wrong-private.pem > bad-token.jwt
 
-curl -X POST http://<your-ec2-ip>:8686/deploy \
-  -H "Authorization: Bearer $(cat [good|bad]token.jwt)" \
+curl -X POST http://<ec2-ip>:8686/deploy \
+  -H "Authorization: Bearer $(cat <good|bad>-token.jwt)" \
   -H "Content-Type: text/plain" \
-  --data "$(echo -n '{"service":"frontend","image":"foo.aws.ecr.bar"}' | base64)"
+  --data "$(echo -n '{"service":"frontend","image":"$IMAGE"}' | base64)"
 
 ```
-- [ ] 🐳 Add Docker Compose control logic
+- [ ] Add Docker Compose control logic in the `exec.go` file
 - [ ] 🚀 Create public repo or internal repo (e.g., fathom5/deployer-service)
 - [ ] 🧪 Set up GitHub Actions to build binary and push to S3
 

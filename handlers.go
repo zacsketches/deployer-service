@@ -1,13 +1,11 @@
 package main
 
 import (
-	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"os/exec"
 	"strings"
 
 	"github.com/apex/log"
@@ -16,34 +14,6 @@ import (
 type DeployRequest struct {
 	Service string `json:"service"`
 	Image   string `json:"image"`
-}
-
-// temp function to verify that I can log in programmatically
-func LoginHandler(w http.ResponseWriter, r *http.Request) {
-	log.Info("login handler triggered")
-
-	var stdoutBuf, stderrBuf bytes.Buffer
-
-	loginCmd := exec.Command("sh", "-c", fmt.Sprintf(`aws ecr get-login-password --region %s | docker login --username AWS --password-stdin %s`, awsRegion, ecrDomain))
-	loginCmd.Stdout = &stdoutBuf
-	loginCmd.Stderr = &stderrBuf
-
-	err := loginCmd.Run()
-	if err != nil {
-		log.WithFields(log.Fields{
-			"action": "login",
-			"stdout": stdoutBuf.String(),
-			"stderr": stderrBuf.String(),
-			"error":  err,
-		}).Error("ecr login failed")
-		return
-	}
-
-	log.WithFields(log.Fields{
-		"action": "login",
-		"stdout": stdoutBuf.String(),
-	}).Info("ecr login was successful")
-
 }
 
 func DeployHandler(w http.ResponseWriter, r *http.Request) {
@@ -92,18 +62,12 @@ func DeployHandler(w http.ResponseWriter, r *http.Request) {
 	// }
 
 	if err := runComposePull(dockerComposePath, req.Service); err != nil {
-		//Internal logging completed in the helper function
+		//Service error logging completed in the exec function
 		http.Error(w, "unable to update service", http.StatusInternalServerError)
 		return
 	}
 
-	log.WithFields(log.Fields{
-		"action":       "pull",
-		"service":      req.Service,
-		"compose_file": dockerComposePath,
-	}).Info("docker compose pull completed")
-
-	fmt.Fprintf(w, "deploy request successful for service %s using image %s\n", req.Service, req.Image)
+	fmt.Fprintf(w, "deploy request successful for service %s\n", req.Service)
 }
 
 func VersionHandler(w http.ResponseWriter, r *http.Request) {

@@ -2,10 +2,38 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"os/exec"
 
 	"github.com/apex/log"
 )
+
+func runLogin() error {
+	log.Info("login handler triggered")
+
+	var stdoutBuf, stderrBuf bytes.Buffer
+
+	loginCmd := exec.Command("sh", "-c", fmt.Sprintf(`aws ecr get-login-password --region %s | docker login --username AWS --password-stdin %s`, awsRegion, ecrDomain))
+	loginCmd.Stdout = &stdoutBuf
+	loginCmd.Stderr = &stderrBuf
+
+	err := loginCmd.Run()
+	if err != nil {
+		log.WithFields(log.Fields{
+			"action": "login",
+			"stdout": stdoutBuf.String(),
+			"stderr": stderrBuf.String(),
+			"error":  err,
+		}).Error("ecr login failed")
+		return err
+	}
+
+	log.WithFields(log.Fields{
+		"action": "login",
+		"stdout": stdoutBuf.String(),
+	}).Info("ecr login was successful")
+	return nil
+}
 
 // func runComposeUp(composeFilePath string, service string) error {
 // 	cmd := exec.Command("docker", "compose", "-f", composeFilePath, "up", "--pull", "always", "-d", service)
@@ -37,7 +65,7 @@ func runComposePull(composeFilePath, service string) error {
 			"stdout":       stdoutBuf.String(),
 			"stderr":       stderrBuf.String(),
 			"error":        err,
-		}).Error("cocker compose pull failed")
+		}).Error("docker compose pull failed")
 		return err
 	}
 
@@ -46,7 +74,7 @@ func runComposePull(composeFilePath, service string) error {
 		"service":      service,
 		"compose_file": composeFilePath,
 		"stdout":       stdoutBuf.String(),
-	}).Info("Docker compose pull completed")
+	}).Info("docker compose pull completed")
 
 	return nil
 }

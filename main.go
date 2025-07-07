@@ -33,6 +33,9 @@ func init() {
 	if ecrDomain == "" {
 		log.Fatal("ECR_REPOSITORY environment variable not set; aborting startup")
 	}
+
+	// Log into ECR for future tasks
+	runLogin()
 }
 
 func main() {
@@ -41,7 +44,6 @@ func main() {
 	http.HandleFunc("/version", VersionHandler)
 	http.HandleFunc("/health", HealthHandler)
 	http.HandleFunc("/deploy", DeployHandler)
-	http.HandleFunc("/login", LoginHandler)
 
 	port := "8686"
 	if envPort := os.Getenv("PORT"); envPort != "" {
