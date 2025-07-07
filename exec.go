@@ -23,7 +23,7 @@ func runComposePull(composeFilePath, service string) error {
 
 	cmd := exec.Command("docker", "compose", "-f", composeFilePath, "pull", service)
 	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	// cmd.Stderr = os.Stderr
 
 	return cmd.Run()
 }
