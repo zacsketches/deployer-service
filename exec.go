@@ -91,6 +91,8 @@ func runComposePull(composeFilePath, service string) error {
 			"stderr":       stderrBuf.String(),
 			"error":        err,
 		}).Error("docker compose pull failed")
+		//TODO: Insert error handling for missing login credentials here if the login
+		//times out.
 		return err
 	}
 
