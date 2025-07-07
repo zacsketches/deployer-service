@@ -1,7 +1,7 @@
 package main
 
 import (
-	"os"
+	"bytes"
 	"os/exec"
 
 	"github.com/apex/log"
@@ -21,9 +21,32 @@ func runComposePull(composeFilePath, service string) error {
 		"compose_file": composeFilePath,
 	}).Info("Starting docker compose pull")
 
-	cmd := exec.Command("docker", "compose", "-f", composeFilePath, "pull", service)
-	//cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	var stdoutBuf, stderrBuf bytes.Buffer
 
-	return cmd.Run()
+	cmd := exec.Command("docker", "compose", "-f", composeFilePath, "pull", service)
+	cmd.Stdout = &stdoutBuf
+	cmd.Stderr = &stderrBuf
+
+	err := cmd.Run()
+
+	if err != nil {
+		log.WithFields(log.Fields{
+			"action":       "pull",
+			"service":      service,
+			"compose_file": composeFilePath,
+			"stdout":       stdoutBuf.String(),
+			"stderr":       stderrBuf.String(),
+			"error":        err,
+		}).Error("cocker compose pull failed")
+		return err
+	}
+
+	log.WithFields(log.Fields{
+		"action":       "pull",
+		"service":      service,
+		"compose_file": composeFilePath,
+		"stdout":       stdoutBuf.String(),
+	}).Info("Docker compose pull completed")
+
+	return nil
 }

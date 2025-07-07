@@ -62,12 +62,7 @@ func DeployHandler(w http.ResponseWriter, r *http.Request) {
 	// }
 
 	if err := runComposePull(DockerComposePath, req.Service); err != nil {
-		log.WithFields(log.Fields{
-			"action":       "pull",
-			"service":      req.Service,
-			"compose_file": DockerComposePath,
-			"error":        err,
-		}).Error("docker compose pull failed")
+		//Internal logging completed in the helper function
 		http.Error(w, "unable to update service", http.StatusInternalServerError)
 		return
 	}
