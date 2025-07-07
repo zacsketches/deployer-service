@@ -35,19 +35,45 @@ func runLogin() error {
 	return nil
 }
 
-// func runComposeUp(composeFilePath string, service string) error {
-// 	cmd := exec.Command("docker", "compose", "-f", composeFilePath, "up", "--pull", "always", "-d", service)
-// 	cmd.Stdout = os.Stdout
-// 	cmd.Stderr = os.Stderr
-// 	return cmd.Run()
-// }
+func runComposeUp() error {
+	log.WithFields(log.Fields{
+		"action":       "compose up",
+		"compose_file": dockerComposePath,
+	}).Info("starting docker compose up -d")
+
+	var stdoutBuf, stderrBuf bytes.Buffer
+
+	cmd := exec.Command("docker", "compose", "-f", dockerComposePath, "up", "-d")
+	cmd.Stdout = &stdoutBuf
+	cmd.Stderr = &stderrBuf
+
+	err := cmd.Run()
+	if err != nil {
+		log.WithFields(log.Fields{
+			"action":       "compose up",
+			"compose_file": dockerComposePath,
+			"stdout":       stdoutBuf.String(),
+			"stderr":       stderrBuf.String(),
+			"error":        err,
+		}).Error("docker compose up failed")
+		return err
+	}
+
+	log.WithFields(log.Fields{
+		"action":       "pull",
+		"compose_file": dockerComposePath,
+		"stdout":       stdoutBuf.String(),
+	}).Info("docker compose up successful")
+
+	return nil
+}
 
 func runComposePull(composeFilePath, service string) error {
 	log.WithFields(log.Fields{
 		"action":       "pull",
 		"service":      service,
 		"compose_file": composeFilePath,
-	}).Info("Starting docker compose pull")
+	}).Info("starting docker compose pull")
 
 	var stdoutBuf, stderrBuf bytes.Buffer
 
@@ -56,7 +82,6 @@ func runComposePull(composeFilePath, service string) error {
 	cmd.Stderr = &stderrBuf
 
 	err := cmd.Run()
-
 	if err != nil {
 		log.WithFields(log.Fields{
 			"action":       "pull",

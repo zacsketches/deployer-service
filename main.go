@@ -7,6 +7,9 @@ import (
 	"github.com/apex/log"
 )
 
+// Constants
+const DefaultPort = "8686"
+
 // Set by environment variables and the program will fatally fail without these
 var dockerComposePath string
 var jwtKeyPath string
@@ -33,21 +36,22 @@ func init() {
 	if ecrDomain == "" {
 		log.Fatal("ECR_REPOSITORY environment variable not set; aborting startup")
 	}
-
-	// Log into ECR for future tasks
-	runLogin()
 }
 
 func main() {
 	loggingSetup()
 
+	// Launch the cluster
+	runLogin()
+	runComposeUp()
+
+	// Configure the daemon
 	http.HandleFunc("/version", VersionHandler)
 	http.HandleFunc("/health", HealthHandler)
 	http.HandleFunc("/deploy", DeployHandler)
-
-	port := "8686"
+	var port string
 	if envPort := os.Getenv("PORT"); envPort != "" {
-		port = envPort
+		port = DefaultPort
 	}
 
 	addr := ":" + port
