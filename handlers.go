@@ -55,13 +55,13 @@ func DeployHandler(w http.ResponseWriter, r *http.Request) {
 		"image":   req.Image,
 	}).Info("received authenticated deploy request")
 
-	// if err := runComposeUp(DockerComposePath, req.Service); err != nil {
-	// 	log.WithError(err).Error("unable to launch service")
-	// 	http.Error(w, "unable to update service", http.StatusInternalServerError)
-	// 	return
-	// }
-
 	if err := runComposePull(dockerComposePath, req.Service); err != nil {
+		//Service error logging completed in the exec function
+		http.Error(w, "unable to update service", http.StatusInternalServerError)
+		return
+	}
+
+	if err := runComposeUp(); err != nil {
 		//Service error logging completed in the exec function
 		http.Error(w, "unable to update service", http.StatusInternalServerError)
 		return
