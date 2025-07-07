@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"os/exec"
 	"strings"
 
 	"github.com/apex/log"
@@ -16,10 +18,38 @@ type DeployRequest struct {
 	Image   string `json:"image"`
 }
 
+// temp function to verify that I can log in programmatically
+func LoginHandler(w http.ResponseWriter, r *http.Request) {
+	log.Info("login handler triggered")
+
+	var stdoutBuf, stderrBuf bytes.Buffer
+
+	loginCmd := exec.Command("sh", "-c", fmt.Sprintf(`aws ecr get-login-password --region %s | docker login --username AWS --password-stdin %s`, awsRegion, ecrDomain))
+	loginCmd.Stdout = &stdoutBuf
+	loginCmd.Stderr = &stderrBuf
+
+	err := loginCmd.Run()
+	if err != nil {
+		log.WithFields(log.Fields{
+			"action": "login",
+			"stdout": stdoutBuf.String(),
+			"stderr": stderrBuf.String(),
+			"error":  err,
+		}).Error("ecr login failed")
+		return
+	}
+
+	log.WithFields(log.Fields{
+		"action": "login",
+		"stdout": stdoutBuf.String(),
+	}).Info("ecr login was successful")
+
+}
+
 func DeployHandler(w http.ResponseWriter, r *http.Request) {
 	ip := getRemoteIP(r)
 
-	issuer, err := VerifyJWTFromHeader(r.Header.Get("Authorization"), JWTKeyPath)
+	issuer, err := VerifyJWTFromHeader(r.Header.Get("Authorization"), jwtKeyPath)
 	if err != nil {
 		log.WithError(err).WithField("ip", ip).Warn("unauthorized deploy attempt")
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -61,7 +91,7 @@ func DeployHandler(w http.ResponseWriter, r *http.Request) {
 	// 	return
 	// }
 
-	if err := runComposePull(DockerComposePath, req.Service); err != nil {
+	if err := runComposePull(dockerComposePath, req.Service); err != nil {
 		//Internal logging completed in the helper function
 		http.Error(w, "unable to update service", http.StatusInternalServerError)
 		return
@@ -70,7 +100,7 @@ func DeployHandler(w http.ResponseWriter, r *http.Request) {
 	log.WithFields(log.Fields{
 		"action":       "pull",
 		"service":      req.Service,
-		"compose_file": DockerComposePath,
+		"compose_file": dockerComposePath,
 	}).Info("docker compose pull completed")
 
 	fmt.Fprintf(w, "deploy request successful for service %s using image %s\n", req.Service, req.Image)

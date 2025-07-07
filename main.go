@@ -8,20 +8,30 @@ import (
 )
 
 // Set by environment variables and the program will fatally fail without these
-var DockerComposePath string
-var JWTKeyPath string
+var dockerComposePath string
+var jwtKeyPath string
+var awsRegion string
+var ecrDomain string
 
 // Injected at build time via build flag -ldflags "-X=main.version=$(git rev-parse --short HEAD)"
 var version string
 
 func init() {
-	JWTKeyPath = os.Getenv("JWT_PUBLIC_KEY_PATH")
-	if JWTKeyPath == "" {
+	jwtKeyPath = os.Getenv("JWT_PUBLIC_KEY_PATH")
+	if jwtKeyPath == "" {
 		log.Fatal("JWT_PUBLIC_KEY_PATH environment variable not set; aborting startup")
 	}
-	DockerComposePath = os.Getenv("DOCKER_COMPOSE_FILE")
-	if DockerComposePath == "" {
+	dockerComposePath = os.Getenv("DOCKER_COMPOSE_FILE")
+	if dockerComposePath == "" {
 		log.Fatal("DOCKER_COMPOSE_FILE environment variable not set; aborting startup")
+	}
+	awsRegion = os.Getenv("AWS_REGION")
+	if awsRegion == "" {
+		log.Fatal("AWS_REGION environment variable not set; aborting startup")
+	}
+	ecrDomain = os.Getenv("ECR_REPOSITORY")
+	if ecrDomain == "" {
+		log.Fatal("ECR_REPOSITORY environment variable not set; aborting startup")
 	}
 }
 
@@ -31,6 +41,7 @@ func main() {
 	http.HandleFunc("/version", VersionHandler)
 	http.HandleFunc("/health", HealthHandler)
 	http.HandleFunc("/deploy", DeployHandler)
+	http.HandleFunc("/login", LoginHandler)
 
 	port := "8686"
 	if envPort := os.Getenv("PORT"); envPort != "" {
