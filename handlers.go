@@ -68,6 +68,8 @@ func DeployHandler(w http.ResponseWriter, r *http.Request) {
 			"compose_file": DockerComposePath,
 			"error":        err,
 		}).Error("docker compose pull failed")
+		http.Error(w, "unable to update service", http.StatusInternalServerError)
+		return
 	}
 
 	log.WithFields(log.Fields{
