@@ -55,7 +55,7 @@ func main() {
 	}
 
 	addr := ":" + port
-	log.WithField("addr", addr).Info("starting deployer service")
+	log.WithField("addr", addr).Info("starting deployer daemon on port" + port)
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		log.WithError(err).Fatal("deploy service failed")
 	}

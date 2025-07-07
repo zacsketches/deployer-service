@@ -60,7 +60,7 @@ func runComposeUp() error {
 	}
 
 	log.WithFields(log.Fields{
-		"action":       "pull",
+		"action":       "compose up",
 		"compose_file": dockerComposePath,
 		"stdout":       stdoutBuf.String(),
 	}).Info("docker compose up successful")
