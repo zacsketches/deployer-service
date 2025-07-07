@@ -1,4 +1,4 @@
-package handlers
+package main
 
 import (
 	"encoding/base64"
@@ -6,11 +6,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/apex/log"
-	"github.com/zacsketches/deployer-service/auth.go"
 )
 
 type DeployRequest struct {
@@ -21,14 +19,7 @@ type DeployRequest struct {
 func DeployHandler(w http.ResponseWriter, r *http.Request) {
 	ip := getRemoteIP(r)
 
-	// this envar is verified at init() so it should be there.
-	jwtKeyPath := os.Getenv("JWT_PUBLIC_KEY_PATH")
-	if jwtKeyPath == "" {
-		log.Error("JWT_PUBLIC_KEY_PATH environment variable not set")
-		http.Error(w, "server configuration error", http.StatusInternalServerError)
-		return
-	}
-	issuer, err := auth.VerifyJWTFromHeader(r.Header.Get("Authorization"), jwtKeyPath)
+	issuer, err := VerifyJWTFromHeader(r.Header.Get("Authorization"), JWTKeyPath)
 	if err != nil {
 		log.WithError(err).WithField("ip", ip).Warn("unauthorized deploy attempt")
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -64,7 +55,28 @@ func DeployHandler(w http.ResponseWriter, r *http.Request) {
 		"image":   req.Image,
 	}).Info("received authenticated deploy request")
 
-	fmt.Fprintf(w, "deploy request accepted for service %s using image %s\n", req.Service, req.Image)
+	// if err := runComposeUp(DockerComposePath, req.Service); err != nil {
+	// 	log.WithError(err).Error("unable to launch service")
+	// 	http.Error(w, "unable to update service", http.StatusInternalServerError)
+	// 	return
+	// }
+
+	if err := runComposePull(DockerComposePath, req.Service); err != nil {
+		log.WithFields(log.Fields{
+			"action":       "pull",
+			"service":      req.Service,
+			"compose_file": DockerComposePath,
+			"error":        err,
+		}).Error("docker compose pull failed")
+	}
+
+	log.WithFields(log.Fields{
+		"action":       "pull",
+		"service":      req.Service,
+		"compose_file": DockerComposePath,
+	}).Info("docker compose pull completed")
+
+	fmt.Fprintf(w, "deploy request successful for service %s using image %s\n", req.Service, req.Image)
 }
 
 func HealthHandler(w http.ResponseWriter, r *http.Request) {

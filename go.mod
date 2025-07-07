@@ -1,6 +1,6 @@
-module github.com/zacsketches/deployer-service
+module deployer-service
 
-go 1.22
+go 1.24.1
 
 require (
 	github.com/apex/log v1.9.0

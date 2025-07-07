@@ -1,4 +1,4 @@
-package logging
+package main
 
 import (
 	"os"
@@ -21,7 +21,7 @@ func (h *centralTimeHandler) HandleLog(e *log.Entry) error {
 	return h.h.HandleLog(e)
 }
 
-func Setup() {
+func loggingSetup() {
 	log.SetHandler(&centralTimeHandler{
 		h: json.New(os.Stdout),
 	})
