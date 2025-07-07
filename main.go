@@ -7,8 +7,12 @@ import (
 	"github.com/apex/log"
 )
 
+// Set by environment variables and the program will fatally fail without these
 var DockerComposePath string
 var JWTKeyPath string
+
+// Injected at build time via build flag -ldflags "-X=main.version=$(git rev-parse --short HEAD)"
+var version string
 
 func init() {
 	JWTKeyPath = os.Getenv("JWT_PUBLIC_KEY_PATH")
@@ -24,6 +28,7 @@ func init() {
 func main() {
 	loggingSetup()
 
+	http.HandleFunc("/version", VersionHandler)
 	http.HandleFunc("/health", HealthHandler)
 	http.HandleFunc("/deploy", DeployHandler)
 

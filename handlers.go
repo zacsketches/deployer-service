@@ -81,6 +81,28 @@ func DeployHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "deploy request successful for service %s using image %s\n", req.Service, req.Image)
 }
 
+func VersionHandler(w http.ResponseWriter, r *http.Request) {
+	ip := getRemoteIP(r)
+
+	if r.Method != http.MethodGet {
+		log.WithFields(log.Fields{
+			"method": r.Method,
+			"ip":     ip,
+			"path":   r.URL.Path,
+		}).Warn("invalid method on /version")
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	log.WithFields(log.Fields{
+		"method": r.Method,
+		"ip":     ip,
+		"path":   r.URL.Path,
+	}).Info("version query returned ok")
+
+	fmt.Fprintln(w, version)
+}
+
 func HealthHandler(w http.ResponseWriter, r *http.Request) {
 	ip := getRemoteIP(r)
 
