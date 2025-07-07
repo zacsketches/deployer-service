@@ -49,13 +49,16 @@ func main() {
 	http.HandleFunc("/version", VersionHandler)
 	http.HandleFunc("/health", HealthHandler)
 	http.HandleFunc("/deploy", DeployHandler)
-	var port string
-	if envPort := os.Getenv("PORT"); envPort != "" {
+	port := os.Getenv("PORT")
+	if port == "" {
 		port = DefaultPort
 	}
 
 	addr := ":" + port
-	log.WithField("addr", addr).Info("starting deployer daemon on port" + port)
+	log.WithFields(log.Fields{
+		"version": version,
+		"addr":    addr,
+	}).Infof("Starting deployer daemon %s on port %s", version, port)
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		log.WithError(err).Fatal("deploy service failed")
 	}
