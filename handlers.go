@@ -67,6 +67,7 @@ func DeployHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, "deploy request successful for service %s\n", req.Service)
 }
 
