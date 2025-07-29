@@ -35,6 +35,38 @@ func runLogin() error {
 	return nil
 }
 
+func runLogout() error {
+	log.WithFields(log.Fields{
+		"action": "logout",
+		"target": ecrDomain,
+	}).Info("starting docker logout")
+
+	var stdoutBuf, stderrBuf bytes.Buffer
+
+	cmd := exec.Command("docker", "logout", ecrDomain)
+	cmd.Stdout = &stdoutBuf
+	cmd.Stderr = &stderrBuf
+
+	err := cmd.Run()
+	if err != nil {
+		log.WithFields(log.Fields{
+			"action": "logout",
+			"target": ecrDomain,
+			"stdout": stdoutBuf.String(),
+			"stderr": stderrBuf.String(),
+			"error":  err,
+		}).Error("docker logout failed")
+		return err
+	}
+
+	log.WithFields(log.Fields{
+		"action": "logout",
+		"target": ecrDomain,
+		"stdout": stdoutBuf.String(),
+	}).Info("docker logout successful")
+
+	return nil
+}
 func runComposeUp() error {
 	log.WithFields(log.Fields{
 		"action":       "compose up",

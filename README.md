@@ -2,6 +2,9 @@
 __This is beta software in early development!__
 A Go webhook listener and deployment automation tool. This utility is optimized for a simple tech stack of a single node AWS EC2 instance running Amazon Linux 2, and orchestrating a minimal number of containers via Docker Compose.  JWT signed Webhooks from GitHub actions trigger the deploy service running on the EC2 instance to pull new containers from AWS ECR and to relaunch then with Compose.
 
+## Deployment
+The deployer service is designed to be run as a systemd service. An example systemd service file is provided in the `/systmed` folder of the project. Note that there are several environment variables that must be present for the system to launch, including a __DEBUG_MODE variable that enables a `/logout` endpoint for testing__. This variable should be changed to `false` when shifting from development to production.
+
 ## 🚀 Release
 To publish a new release of the deployer-service, push a new Git tag that follows semantic versioning.
 

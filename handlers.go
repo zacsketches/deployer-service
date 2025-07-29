@@ -129,3 +129,37 @@ func getRemoteIP(r *http.Request) string {
 	}
 	return strings.Split(r.RemoteAddr, ":")[0]
 }
+
+func LogoutHandler(w http.ResponseWriter, r *http.Request) {
+	ip := getRemoteIP(r)
+
+	if r.Method != http.MethodPost {
+		log.WithFields(log.Fields{
+			"method": r.Method,
+			"ip":     ip,
+			"path":   r.URL.Path,
+		}).Warn("invalid method on /logout")
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if !debugMode {
+		log.WithFields(log.Fields{
+			"ip":   ip,
+			"path": r.URL.Path,
+		}).Warn("logout attempted in non-debug mode")
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	log.WithField("ip", ip).Info("received logout request")
+
+	if err := runLogout(); err != nil {
+		log.WithError(err).WithField("ip", ip).Error("logout failed")
+		http.Error(w, "logout failed", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintln(w, "docker logout successful")
+}

@@ -1,0 +1,18 @@
+[Unit]
+Description=Deployer Service
+After=docker.service
+Requires=docker.service
+
+[Service]
+WorkingDirectory=/opt/deployer-service
+ExecStart=/opt/deployer-service/deployer
+Environment="JWT_PUBLIC_KEY_PATH=/opt/deployer-service/deployer.pub"
+Environment="DOCKER_COMPOSE_FILE=/opt/deployer-service/compose/docker-compose.yml"
+Environment="AWS_REGION=$AWS_REGION"
+Environment="ECR_REPOSITORY=279002507309.dkr.ecr.us-west-2.amazonaws.com"
+Environment="DEBUG_MODE=true"
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

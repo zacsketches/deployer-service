@@ -15,6 +15,7 @@ var dockerComposePath string
 var jwtKeyPath string
 var awsRegion string
 var ecrDomain string
+var debugMode bool
 
 // Injected at build time via build flag -ldflags "-X=main.version=$(git rev-parse --short HEAD)"
 var version string
@@ -36,6 +37,12 @@ func init() {
 	if ecrDomain == "" {
 		log.Fatal("ECR_REPOSITORY environment variable not set; aborting startup")
 	}
+	debugModeEnv := os.Getenv("DEBUG_MODE")
+	if debugModeEnv != "true" && debugModeEnv != "false" {
+		log.Fatal("DEBUG_MODE environment variable must be set to 'true' or 'false'; aborting startup")
+	}
+	// Set debugMode to true if DEBUG_MODE environment variable is "true"
+	debugMode = debugModeEnv == "true"
 }
 
 func main() {
@@ -49,6 +56,7 @@ func main() {
 	http.HandleFunc("/version", VersionHandler)
 	http.HandleFunc("/health", HealthHandler)
 	http.HandleFunc("/deploy", DeployHandler)
+	http.HandleFunc("/logout", LogoutHandler)
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = DefaultPort
@@ -61,5 +69,10 @@ func main() {
 	}).Infof("Starting deployer daemon %s on port %s", version, port)
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		log.WithError(err).Fatal("deploy service failed")
+	}
+	if debugMode {
+		log.Info("Running in DEBUG mode")
+	} else {
+		log.Info("Running in PRODUCTION mode")
 	}
 }
