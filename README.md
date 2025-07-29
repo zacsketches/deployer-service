@@ -5,6 +5,23 @@ A Go webhook listener and deployment automation tool. This utility is optimized 
 ## Deployment
 The deployer service is designed to be run as a systemd service. An example systemd service file is provided in the `/systmed` folder of the project. Note that there are several environment variables that must be present for the system to launch, including a __DEBUG_MODE variable that enables a `/logout` endpoint for testing__. This variable should be changed to `false` when shifting from development to production.
 
+## Managing the Service
+Since the `deployer-service` is the root of the CD pipeline, it has to be updated manually. There is a utility provided in the `/bin` folder of the project that should be loaded onto the EC2 instance. Running this utility from the instance upgrades the service to the newest version at the sysadmin's discretion. 
+
+## Testing
+The service uses docker to log into AWS ECR on launch, but the login credential from ECR time out after several hours. The service is resilient to this change and attempts to log back in on a failed `docker compose pull`. However, this is a difficult resiliency feature to test. So, the service enables a `/logout` endpoint when the `DEBUG_MODE=true` environment variable is set. With the `/logout` endpoint enabled you can curl the logout, and then send another deployment trigger to observe the retry logic. The following terminal windows are assumed to both be logged into an EC2 instance.
+```
+in terminal window 1 follow the service logs
+
+journalctl -u deployer-service -f
+```
+```
+in terminal window 2 log the service out of docker
+
+curl -X POST http://localhost:8686/logout
+```
+Then make a small change to one of the system containers and push the update to CI/CD.  You should see the logs fail the first pull attempt and then log back in before trying the pull again.
+
 ## 🚀 Release
 To publish a new release of the deployer-service, push a new Git tag that follows semantic versioning.
 
