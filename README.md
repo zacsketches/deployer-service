@@ -5,6 +5,9 @@ A Go webhook listener and deployment automation tool. This utility is optimized 
 ## 🚀 Release
 To publish a new release of the deployer-service, push a new Git tag that follows semantic versioning.
 
+> **Before Creating a Release:**  
+> Ensure that all features are pushed to remote and that the code is ready for production. The release process will automatically build the binary, embed the version, and create a GitHub Release.
+
 🔧 To create a release, check the latest tag and assign the next sequential tag:
 ```bash
 # Fetch all tags from remote
@@ -27,7 +30,8 @@ GitHub Actions will automatically:
 3. Create a GitHub Release associated with the tag
 4. Upload the compiled binary (deployer-service) as a release asset
     
-NOTE - Builds using CGO_ENABLED=0 to ensure compatibility with Amazon Linux 2.
+NOTE 1 - Builds using CGO_ENABLED=0 to ensure compatibility with Amazon Linux 2.
+NOTE 2 - There is a small utility script `bin/latest.sh` that can be used to determine the latest tag in the repository. It can be run with `bash bin/latest.sh`.
 
 ✅ Example
 ```bash

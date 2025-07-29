@@ -28,8 +28,9 @@ go.work.sum
 .env
 .envrc
 
-# local builds in the bin/ folder
-bin/
+# local builds in the bin/ folder, except bin/latest.sh
+bin/*
+!bin/latest.sh
 
 # Editor/IDE
 # .idea/
