@@ -67,12 +67,13 @@ func main() {
 		"version": version,
 		"addr":    addr,
 	}).Infof("Starting deployer daemon %s on port %s", version, port)
-	if err := http.ListenAndServe(addr, nil); err != nil {
-		log.WithError(err).Fatal("deploy service failed")
-	}
 	if debugMode {
 		log.Info("Running in DEBUG mode")
 	} else {
 		log.Info("Running in PRODUCTION mode")
 	}
+	if err := http.ListenAndServe(addr, nil); err != nil {
+		log.WithError(err).Fatal("deploy service failed")
+	}
+
 }
