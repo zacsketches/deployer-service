@@ -67,6 +67,7 @@ func runLogout() error {
 
 	return nil
 }
+
 func runComposeUp() error {
 	log.WithFields(log.Fields{
 		"action":       "compose up",
