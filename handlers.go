@@ -55,10 +55,17 @@ func DeployHandler(w http.ResponseWriter, r *http.Request) {
 		"image":   req.Image,
 	}).Info("received authenticated deploy request")
 
+	// make an initial pull attempt, followed by a login-->try again before failing.
 	if err := runComposePull(dockerComposePath, req.Service); err != nil {
-		//Service error logging completed in the exec function
-		http.Error(w, "unable to update service", http.StatusInternalServerError)
-		return
+		// Try to login and pull again if the first pull fails
+		if loginErr := runLogin(); loginErr != nil {
+			http.Error(w, "unable to update service", http.StatusInternalServerError)
+			return
+		}
+		if err := runComposePull(dockerComposePath, req.Service); err != nil {
+			http.Error(w, "unable to update service", http.StatusInternalServerError)
+			return
+		}
 	}
 
 	if err := runComposeUp(); err != nil {
