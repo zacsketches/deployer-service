@@ -33,9 +33,9 @@ func init() {
 	if awsRegion == "" {
 		log.Fatal("AWS_REGION environment variable not set; aborting startup")
 	}
-	ecrDomain = os.Getenv("ECR_REPOSITORY")
+	ecrDomain = os.Getenv("ECR_DOMAIN")
 	if ecrDomain == "" {
-		log.Fatal("ECR_REPOSITORY environment variable not set; aborting startup")
+		log.Fatal("ECR_DOMAIN environment variable not set; aborting startup")
 	}
 	debugModeEnv := os.Getenv("DEBUG_MODE")
 	if debugModeEnv != "true" && debugModeEnv != "false" {

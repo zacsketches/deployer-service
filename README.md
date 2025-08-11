@@ -1,9 +1,13 @@
 # deployer-service
 __This is beta software in early development!__
-A Go webhook listener and deployment automation tool. This utility is optimized for a simple tech stack of a single node AWS EC2 instance running Amazon Linux 2, and orchestrating a minimal number of containers via Docker Compose.  JWT signed Webhooks from GitHub actions trigger the deploy service running on the EC2 instance to pull new containers from AWS ECR and to relaunch then with Compose.
+`deployer-service` is Go webhook listener and deployment automation tool. This service is designed to support continuous delivery (CD) for a simple tech stack of a single node AWS EC2 instance running Amazon Linux 2, and orchestrating a minimal number of containers via Docker Compose.  JWT signed Webhooks from GitHub actions trigger the deploy service running on the EC2 instance to pull new containers from AWS ECR and to relaunch then with Compose.
 
-## Deployment
-The deployer service is designed to be run as a systemd service. An example systemd service file is provided in the `/systmed` folder of the project. Note that there are several environment variables that must be present for the system to launch, including a __DEBUG_MODE variable that enables a `/logout` endpoint for testing__. This variable should be changed to `false` when shifting from development to production.
+This avoids complexity with full Kubernetes container orchestration and accelerates development on small projects that do not require fully K8S.
+
+## Usage
+The deployer service is designed to be run as a systemd service on an Amazon Elastic Cloud Compute (EC2) virtual machine. An example systemd service file is provided in the `/systmed` folder of the project. This service file is normally added to the `user_data.sh` script that configures the EC2 instance on standup. 
+
+Note that there are several environment variables that must be present for the system to launch. Edit the provided service file to provide an AWS region and an AWS Elastic Container Registry (ECR) account id. The environment variable also include a __DEBUG_MODE variable that enables a `/logout` endpoint for testing__. This variable should be changed to `false` when shifting from development to production.
 
 ## Managing the Service
 Since the `deployer-service` is the root of the CD pipeline, it has to be updated manually. There is a utility provided in the `/bin` folder of the project that should be loaded onto the EC2 instance. Running this utility from the instance upgrades the service to the newest version at the sysadmin's discretion. 
