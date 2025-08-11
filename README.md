@@ -1,7 +1,7 @@
 # deployer-service
 __This is beta software in early development!__
 
-The `deployer-service` is Go webhook listener and deployment automation tool. This service is designed to support continuous delivery (CD) for a simple tech stack of a single node AWS EC2 instance running Amazon Linux 2, and orchestrating a minimal number of containers via Docker Compose.  JWT signed Webhooks from GitHub actions trigger the deploy service running on the EC2 instance to pull new containers from AWS ECR and to relaunch then with Compose.
+The `deployer-service` is a Go webhook listener and deployment automation tool. This service is designed to support continuous delivery (CD) for a simple tech stack of a single node AWS EC2 instance running Amazon Linux 2, and orchestrating a minimal number of containers via Docker Compose.  JWT signed Webhooks from GitHub actions trigger the deploy service running on the EC2 instance to pull new containers from AWS ECR and to relaunch then with Compose.
 
 This avoids complexity with full Kubernetes container orchestration and accelerates development on small projects that do not require fully K8S.
 
