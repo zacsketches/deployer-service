@@ -13,7 +13,6 @@ import (
 
 type DeployRequest struct {
 	Service string `json:"service"`
-	Image   string `json:"image"`
 }
 
 func DeployHandler(w http.ResponseWriter, r *http.Request) {
@@ -48,11 +47,15 @@ func DeployHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if strings.TrimSpace(req.Service) == "" {
+		http.Error(w, "service is required", http.StatusBadRequest)
+		return
+	}
+
 	log.WithFields(log.Fields{
 		"ip":      ip,
 		"iss":     issuer,
 		"service": req.Service,
-		"image":   req.Image,
 	}).Info("received authenticated deploy request")
 
 	// make an initial pull attempt, followed by a login-->try again before failing.
