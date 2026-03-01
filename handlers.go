@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/apex/log"
@@ -13,6 +14,16 @@ import (
 
 type DeployRequest struct {
 	Service string `json:"service"`
+}
+
+type ConfigResponse struct {
+	Version           string `json:"version"`
+	Port              string `json:"port"`
+	DebugMode         bool   `json:"debug_mode"`
+	AWSRegion         string `json:"aws_region"`
+	ECRDomain         string `json:"ecr_domain"`
+	DockerComposeFile string `json:"docker_compose_file"`
+	JWTPublicKeyPath  string `json:"jwt_public_key_path"`
 }
 
 func DeployHandler(w http.ResponseWriter, r *http.Request) {
@@ -123,6 +134,48 @@ func HealthHandler(w http.ResponseWriter, r *http.Request) {
 	}).Info("health check query returned ok")
 
 	fmt.Fprintln(w, "deployer healthy")
+}
+
+func ConfigHandler(w http.ResponseWriter, r *http.Request) {
+	ip := getRemoteIP(r)
+
+	if r.Method != http.MethodGet {
+		log.WithFields(log.Fields{
+			"method": r.Method,
+			"ip":     ip,
+			"path":   r.URL.Path,
+		}).Warn("invalid method on /config")
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = DefaultPort
+	}
+
+	cfg := ConfigResponse{
+		Version:           version,
+		Port:              port,
+		DebugMode:         debugMode,
+		AWSRegion:         awsRegion,
+		ECRDomain:         ecrDomain,
+		DockerComposeFile: dockerComposePath,
+		JWTPublicKeyPath:  jwtKeyPath,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(cfg); err != nil {
+		log.WithError(err).WithField("ip", ip).Error("failed to write config response")
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	log.WithFields(log.Fields{
+		"method": r.Method,
+		"ip":     ip,
+		"path":   r.URL.Path,
+	}).Info("config query returned ok")
 }
 
 func getRemoteIP(r *http.Request) string {

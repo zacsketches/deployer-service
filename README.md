@@ -7,6 +7,7 @@
 - Exposes HTTP endpoints:
   - `GET /health`
   - `GET /version`
+  - `GET /config`
   - `POST /deploy` (JWT required)
   - `POST /logout` (debug mode only)
 - On startup it attempts:
@@ -229,11 +230,12 @@ curl -X POST http://<ec2-ip>:8686/deploy \
   --data "$payload"
 ```
 
-## Health and version checks
+## Health, version, and config checks
 
 ```bash
 curl http://<ec2-ip>:8686/health
 curl http://<ec2-ip>:8686/version
+curl http://<ec2-ip>:8686/config
 ```
 
 ## Debug logout endpoint
@@ -259,6 +261,8 @@ bash bin/latest.sh
 Typical flow:
 
 ```bash
+git commit -a -m "Reason for latest change"
+git push
 git fetch --tags
 git tag vX.Y.Z
 git push origin vX.Y.Z

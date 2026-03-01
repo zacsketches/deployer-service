@@ -55,6 +55,7 @@ func main() {
 	// Configure the daemon
 	http.HandleFunc("/version", VersionHandler)
 	http.HandleFunc("/health", HealthHandler)
+	http.HandleFunc("/config", ConfigHandler)
 	http.HandleFunc("/deploy", DeployHandler)
 	http.HandleFunc("/logout", LogoutHandler)
 	port := os.Getenv("PORT")
