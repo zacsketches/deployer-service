@@ -3,11 +3,13 @@ package main
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/apex/log"
 )
@@ -15,6 +17,49 @@ import (
 type DeployRequest struct {
 	Service string `json:"service"`
 }
+
+const deployRetryAfterSeconds = "5"
+
+var errDeploymentInProgress = errors.New("deployment already in progress")
+
+type deploymentCommands struct {
+	pull      func(string, string) error
+	login     func() error
+	composeUp func(string, string) error
+}
+
+type deploymentCoordinator struct {
+	mutex    sync.Mutex
+	commands deploymentCommands
+}
+
+func newDeploymentCoordinator(commands deploymentCommands) *deploymentCoordinator {
+	return &deploymentCoordinator{commands: commands}
+}
+
+func (coordinator *deploymentCoordinator) deploy(composeFilePath, service string) error {
+	if !coordinator.mutex.TryLock() {
+		return errDeploymentInProgress
+	}
+	defer coordinator.mutex.Unlock()
+
+	if err := coordinator.commands.pull(composeFilePath, service); err != nil {
+		if loginErr := coordinator.commands.login(); loginErr != nil {
+			return loginErr
+		}
+		if err := coordinator.commands.pull(composeFilePath, service); err != nil {
+			return err
+		}
+	}
+
+	return coordinator.commands.composeUp(composeFilePath, service)
+}
+
+var deployCoordinator = newDeploymentCoordinator(deploymentCommands{
+	pull:      runComposePull,
+	login:     runLogin,
+	composeUp: runComposeUpService,
+})
 
 type ConfigResponse struct {
 	Version           string `json:"version"`
@@ -69,27 +114,27 @@ func DeployHandler(w http.ResponseWriter, r *http.Request) {
 		"service": req.Service,
 	}).Info("received authenticated deploy request")
 
-	// make an initial pull attempt, followed by a login-->try again before failing.
-	if err := runComposePull(dockerComposePath, req.Service); err != nil {
-		// Try to login and pull again if the first pull fails
-		if loginErr := runLogin(); loginErr != nil {
-			http.Error(w, "unable to update service", http.StatusInternalServerError)
-			return
-		}
-		if err := runComposePull(dockerComposePath, req.Service); err != nil {
-			http.Error(w, "unable to update service", http.StatusInternalServerError)
-			return
-		}
-	}
-
-	if err := runComposeUpService(dockerComposePath, req.Service); err != nil {
-		//Service error logging completed in the exec function
-		http.Error(w, "unable to update service", http.StatusInternalServerError)
+	if err := deployCoordinator.deploy(dockerComposePath, req.Service); err != nil {
+		writeDeployError(w, req.Service, err)
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, "deploy request successful for service %s\n", req.Service)
+}
+
+func writeDeployError(w http.ResponseWriter, service string, err error) {
+	if errors.Is(err, errDeploymentInProgress) {
+		log.WithFields(log.Fields{
+			"action":  "deploy",
+			"service": service,
+		}).Warn("deployment already in progress")
+		w.Header().Set("Retry-After", deployRetryAfterSeconds)
+		http.Error(w, "deployment already in progress; retry later", http.StatusTooManyRequests)
+		return
+	}
+
+	http.Error(w, "unable to update service", http.StatusInternalServerError)
 }
 
 func VersionHandler(w http.ResponseWriter, r *http.Request) {

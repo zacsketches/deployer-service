@@ -18,6 +18,7 @@
   1. `docker compose -f <file> pull <service>`
   2. If pull fails, ECR login + retry pull once
   3. `docker compose -f <file> up -d <service>`
+- Only one deployment mutation runs per daemon. Concurrent deploy requests receive `429 Too Many Requests` with `Retry-After: 5` and must retry later.
 
 ## Runtime requirements
 
