@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -23,9 +24,9 @@ const deployRetryAfterSeconds = "5"
 var errDeploymentInProgress = errors.New("deployment already in progress")
 
 type deploymentCommands struct {
-	pull      func(string, string) error
-	login     func() error
-	composeUp func(string, string) error
+	pull      func(context.Context, string, string) error
+	login     func(context.Context) error
+	composeUp func(context.Context, string, string) error
 }
 
 type deploymentCoordinator struct {
@@ -37,22 +38,22 @@ func newDeploymentCoordinator(commands deploymentCommands) *deploymentCoordinato
 	return &deploymentCoordinator{commands: commands}
 }
 
-func (coordinator *deploymentCoordinator) deploy(composeFilePath, service string) error {
+func (coordinator *deploymentCoordinator) deploy(ctx context.Context, composeFilePath, service string) error {
 	if !coordinator.mutex.TryLock() {
 		return errDeploymentInProgress
 	}
 	defer coordinator.mutex.Unlock()
 
-	if err := coordinator.commands.pull(composeFilePath, service); err != nil {
-		if loginErr := coordinator.commands.login(); loginErr != nil {
+	if err := coordinator.commands.pull(ctx, composeFilePath, service); err != nil {
+		if loginErr := coordinator.commands.login(ctx); loginErr != nil {
 			return loginErr
 		}
-		if err := coordinator.commands.pull(composeFilePath, service); err != nil {
+		if err := coordinator.commands.pull(ctx, composeFilePath, service); err != nil {
 			return err
 		}
 	}
 
-	return coordinator.commands.composeUp(composeFilePath, service)
+	return coordinator.commands.composeUp(ctx, composeFilePath, service)
 }
 
 var deployCoordinator = newDeploymentCoordinator(deploymentCommands{
@@ -114,7 +115,7 @@ func DeployHandler(w http.ResponseWriter, r *http.Request) {
 		"service": req.Service,
 	}).Info("received authenticated deploy request")
 
-	if err := deployCoordinator.deploy(dockerComposePath, req.Service); err != nil {
+	if err := deployCoordinator.deploy(r.Context(), dockerComposePath, req.Service); err != nil {
 		writeDeployError(w, req.Service, err)
 		return
 	}
@@ -131,6 +132,15 @@ func writeDeployError(w http.ResponseWriter, service string, err error) {
 		}).Warn("deployment already in progress")
 		w.Header().Set("Retry-After", deployRetryAfterSeconds)
 		http.Error(w, "deployment already in progress; retry later", http.StatusTooManyRequests)
+		return
+	}
+	if errors.Is(err, errCommandTimedOut) {
+		log.WithFields(log.Fields{
+			"action":  "deploy",
+			"service": service,
+			"error":   err,
+		}).Error("deployment command timed out")
+		http.Error(w, "deployment command timed out; retry later", http.StatusGatewayTimeout)
 		return
 	}
 
@@ -265,7 +275,12 @@ func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.WithField("ip", ip).Info("received logout request")
 
-	if err := runLogout(); err != nil {
+	if err := runLogout(r.Context()); err != nil {
+		if errors.Is(err, errCommandTimedOut) {
+			log.WithError(err).WithField("ip", ip).Error("logout command timed out")
+			http.Error(w, "logout command timed out; retry later", http.StatusGatewayTimeout)
+			return
+		}
 		log.WithError(err).WithField("ip", ip).Error("logout failed")
 		http.Error(w, "logout failed", http.StatusInternalServerError)
 		return

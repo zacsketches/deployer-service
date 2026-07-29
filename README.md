@@ -19,6 +19,7 @@
   2. If pull fails, ECR login + retry pull once
   3. `docker compose -f <file> up -d <service>`
 - Only one deployment mutation runs per daemon. Concurrent deploy requests receive `429 Too Many Requests` with `Retry-After: 5` and must retry later.
+- Every AWS CLI and Docker command has its own deadline. When a deadline is exceeded, the command is terminated, logs include timeout fields, and `/deploy` or debug `/logout` returns `504 Gateway Timeout`.
 
 ## Runtime requirements
 
@@ -44,6 +45,7 @@ The service **fails fast at startup** if any of these are missing or invalid:
 Optional:
 
 - `PORT` – defaults to `8686`
+- `COMMAND_TIMEOUT` – maximum duration for each AWS CLI or Docker command; positive Go duration such as `5m` or `90s`, defaults to `5m`
 
 ## Expected host layout (example)
 
@@ -95,6 +97,7 @@ Environment="DOCKER_COMPOSE_FILE=/opt/deployer-service/compose/docker-compose.ym
 Environment="AWS_REGION=us-west-2"
 Environment="ECR_DOMAIN=<account-id>.dkr.ecr.us-west-2.amazonaws.com"
 Environment="DEBUG_MODE=false"
+Environment="COMMAND_TIMEOUT=5m"
 Restart=always
 RestartSec=5
 
@@ -135,6 +138,7 @@ DEPS_DIR="/opt/deployer-service"
 COMPOSE_FILE="$DEPS_DIR/compose/docker-compose.yml"
 PUBLIC_KEY_PATH="$DEPS_DIR/deployer.pub"
 DEBUG_MODE="false"
+COMMAND_TIMEOUT="5m"
 
 # ---- OS packages ----
 yum update -y
@@ -185,6 +189,7 @@ Environment="DOCKER_COMPOSE_FILE=$COMPOSE_FILE"
 Environment="AWS_REGION=$AWS_REGION"
 Environment="ECR_DOMAIN=$ECR_DOMAIN"
 Environment="DEBUG_MODE=$DEBUG_MODE"
+Environment="COMMAND_TIMEOUT=$COMMAND_TIMEOUT"
 Restart=always
 RestartSec=5
 
@@ -274,7 +279,6 @@ git push origin vX.Y.Z
 
 ## Known limitations (current code behavior)
 
-- Startup `runLogin()` / `runComposeUp()` errors are logged but do not stop daemon startup.
 - JWT validation checks signature and presence of `iss`; it does not enforce custom claim rules beyond standard parsing.
 
 ---

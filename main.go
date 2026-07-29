@@ -1,16 +1,20 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
 	"sync/atomic"
+	"time"
 
 	"github.com/apex/log"
 )
 
-// Constants
-const DefaultPort = "8686"
+const (
+	DefaultPort           = "8686"
+	DefaultCommandTimeout = 5 * time.Minute
+)
 
 // Set by environment variables and the program will fatally fail without these
 var dockerComposePath string
@@ -19,6 +23,7 @@ var awsRegion string
 var ecrDomain string
 var debugMode bool
 var initializationComplete atomic.Bool
+var commandTimeout = DefaultCommandTimeout
 
 // Injected at build time via build flag -ldflags "-X=main.version=$(git rev-parse --short HEAD)"
 var version string
@@ -46,15 +51,26 @@ func init() {
 	}
 	// Set debugMode to true if DEBUG_MODE environment variable is "true"
 	debugMode = debugModeEnv == "true"
+	commandTimeoutEnv := os.Getenv("COMMAND_TIMEOUT")
+	if commandTimeoutEnv != "" {
+		parsedCommandTimeout, err := time.ParseDuration(commandTimeoutEnv)
+		if err != nil {
+			log.WithError(err).Fatal("COMMAND_TIMEOUT must be a positive Go duration, such as 5m")
+		}
+		if parsedCommandTimeout <= 0 {
+			log.Fatal("COMMAND_TIMEOUT must be a positive Go duration, such as 5m")
+		}
+		commandTimeout = parsedCommandTimeout
+	}
 }
 
-func initializeService(login func() error, composeUpAll func(string) error) error {
+func initializeService(ctx context.Context, login func(context.Context) error, composeUpAll func(context.Context, string) error) error {
 	initializationComplete.Store(false)
 
-	if err := login(); err != nil {
+	if err := login(ctx); err != nil {
 		return fmt.Errorf("ECR login during startup: %w", err)
 	}
-	if err := composeUpAll(dockerComposePath); err != nil {
+	if err := composeUpAll(ctx, dockerComposePath); err != nil {
 		return fmt.Errorf("initial Docker Compose up during startup: %w", err)
 	}
 
@@ -66,7 +82,7 @@ func main() {
 	loggingSetup()
 
 	// Launch the cluster
-	if err := initializeService(runLogin, runComposeUpAll); err != nil {
+	if err := initializeService(context.Background(), runLogin, runComposeUpAll); err != nil {
 		log.WithError(err).Fatal("deployer startup initialization failed")
 	}
 

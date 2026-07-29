@@ -11,6 +11,7 @@ Environment="DOCKER_COMPOSE_FILE=/opt/deployer-service/compose/docker-compose.ym
 Environment="AWS_REGION=<aws-region>"
 Environment="ECR_DOMAIN=<account-id>.dkr.ecr.<aws-region>.amazonaws.com"
 Environment="DEBUG_MODE=true"
+Environment="COMMAND_TIMEOUT=5m"
 Restart=always
 RestartSec=5
 

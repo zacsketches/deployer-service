@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -43,11 +44,11 @@ func TestInitializeService(t *testing.T) {
 			composeCalls := 0
 			composeFile := ""
 
-			err := initializeService(
-				func() error {
+			err := initializeService(context.Background(),
+				func(context.Context) error {
 					return test.loginErr
 				},
-				func(gotComposeFile string) error {
+				func(_ context.Context, gotComposeFile string) error {
 					composeCalls++
 					composeFile = gotComposeFile
 					return test.composeErr

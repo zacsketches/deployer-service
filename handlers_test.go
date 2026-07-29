@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -39,20 +40,20 @@ func TestDeploymentCoordinatorPreventsOverlappingCommands(t *testing.T) {
 	}
 
 	coordinator := newDeploymentCoordinator(deploymentCommands{
-		pull: func(string, string) error {
+		pull: func(context.Context, string, string) error {
 			commandMutex.Lock()
 			pullCalls++
 			commandMutex.Unlock()
 			runCommand(true)
 			return nil
 		},
-		login: func() error {
+		login: func(context.Context) error {
 			commandMutex.Lock()
 			loginCalls++
 			commandMutex.Unlock()
 			return nil
 		},
-		composeUp: func(string, string) error {
+		composeUp: func(context.Context, string, string) error {
 			commandMutex.Lock()
 			composeUpCalls++
 			commandMutex.Unlock()
@@ -63,7 +64,7 @@ func TestDeploymentCoordinatorPreventsOverlappingCommands(t *testing.T) {
 
 	firstResult := make(chan error, 1)
 	go func() {
-		firstResult <- coordinator.deploy("/test/docker-compose.yml", "frontend")
+		firstResult <- coordinator.deploy(context.Background(), "/test/docker-compose.yml", "frontend")
 	}()
 	<-pullStarted
 
@@ -74,7 +75,7 @@ func TestDeploymentCoordinatorPreventsOverlappingCommands(t *testing.T) {
 		waitGroup.Add(1)
 		go func() {
 			defer waitGroup.Done()
-			results <- coordinator.deploy("/test/docker-compose.yml", "frontend")
+			results <- coordinator.deploy(context.Background(), "/test/docker-compose.yml", "frontend")
 		}()
 	}
 	waitGroup.Wait()
@@ -120,5 +121,18 @@ func TestWriteDeployErrorWhenDeploymentInProgress(t *testing.T) {
 	}
 	if body := strings.TrimSpace(response.Body.String()); body != "deployment already in progress; retry later" {
 		t.Errorf("response body = %q, want deployment retry message", body)
+	}
+}
+
+func TestWriteDeployErrorWhenCommandTimesOut(t *testing.T) {
+	response := httptest.NewRecorder()
+
+	writeDeployError(response, "frontend", errCommandTimedOut)
+
+	if response.Code != http.StatusGatewayTimeout {
+		t.Errorf("status = %d, want %d", response.Code, http.StatusGatewayTimeout)
+	}
+	if body := strings.TrimSpace(response.Body.String()); body != "deployment command timed out; retry later" {
+		t.Errorf("response body = %q, want timeout retry message", body)
 	}
 }

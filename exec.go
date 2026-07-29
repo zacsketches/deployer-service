@@ -2,30 +2,60 @@ package main
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 
 	"github.com/apex/log"
 )
 
-func runLogin() error {
+var errCommandTimedOut = errors.New("command timed out")
+
+func commandWithTimeout(parent context.Context, name string, args ...string) (*exec.Cmd, context.Context, context.CancelFunc) {
+	commandCtx, cancel := context.WithTimeout(parent, commandTimeout)
+	return exec.CommandContext(commandCtx, name, args...), commandCtx, cancel
+}
+
+func commandError(commandCtx context.Context, err error) error {
+	if errors.Is(commandCtx.Err(), context.DeadlineExceeded) {
+		return fmt.Errorf("%w after %s", errCommandTimedOut, commandTimeout)
+	}
+	return err
+}
+
+func logCommandFailure(commandCtx context.Context, fields log.Fields, message string, err error) error {
+	commandErr := commandError(commandCtx, err)
+	if errors.Is(commandErr, errCommandTimedOut) {
+		fields["error"] = commandErr
+		fields["timeout"] = commandTimeout.String()
+		fields["timeout_seconds"] = commandTimeout.Seconds()
+		log.WithFields(fields).Error(message + " timed out")
+		return commandErr
+	}
+
+	fields["error"] = commandErr
+	log.WithFields(fields).Error(message)
+	return commandErr
+}
+
+func runLogin(parent context.Context) error {
 	log.Info("login handler triggered")
 
 	var stdoutBuf, stderrBuf bytes.Buffer
 
-	loginCmd := exec.Command("sh", "-c", fmt.Sprintf(`aws ecr get-login-password --region %s | docker login --username AWS --password-stdin %s`, awsRegion, ecrDomain))
+	loginCmd, commandCtx, cancel := commandWithTimeout(parent, "sh", "-c", fmt.Sprintf(`aws ecr get-login-password --region %s | docker login --username AWS --password-stdin %s`, awsRegion, ecrDomain))
+	defer cancel()
 	loginCmd.Stdout = &stdoutBuf
 	loginCmd.Stderr = &stderrBuf
 
 	err := loginCmd.Run()
 	if err != nil {
-		log.WithFields(log.Fields{
+		return logCommandFailure(commandCtx, log.Fields{
 			"action": "login",
 			"stdout": stdoutBuf.String(),
 			"stderr": stderrBuf.String(),
-			"error":  err,
-		}).Error("ecr login failed")
-		return err
+		}, "ecr login failed", err)
 	}
 
 	log.WithFields(log.Fields{
@@ -35,7 +65,7 @@ func runLogin() error {
 	return nil
 }
 
-func runLogout() error {
+func runLogout(parent context.Context) error {
 	log.WithFields(log.Fields{
 		"action": "logout",
 		"target": ecrDomain,
@@ -43,20 +73,19 @@ func runLogout() error {
 
 	var stdoutBuf, stderrBuf bytes.Buffer
 
-	cmd := exec.Command("docker", "logout", ecrDomain)
+	cmd, commandCtx, cancel := commandWithTimeout(parent, "docker", "logout", ecrDomain)
+	defer cancel()
 	cmd.Stdout = &stdoutBuf
 	cmd.Stderr = &stderrBuf
 
 	err := cmd.Run()
 	if err != nil {
-		log.WithFields(log.Fields{
+		return logCommandFailure(commandCtx, log.Fields{
 			"action": "logout",
 			"target": ecrDomain,
 			"stdout": stdoutBuf.String(),
 			"stderr": stderrBuf.String(),
-			"error":  err,
-		}).Error("docker logout failed")
-		return err
+		}, "docker logout failed", err)
 	}
 
 	log.WithFields(log.Fields{
@@ -76,15 +105,15 @@ func composeUpArgs(composeFilePath, service string) []string {
 	return args
 }
 
-func runComposeUpAll(composeFilePath string) error {
-	return runComposeUp(composeFilePath, "")
+func runComposeUpAll(parent context.Context, composeFilePath string) error {
+	return runComposeUp(parent, composeFilePath, "")
 }
 
-func runComposeUpService(composeFilePath, service string) error {
-	return runComposeUp(composeFilePath, service)
+func runComposeUpService(parent context.Context, composeFilePath, service string) error {
+	return runComposeUp(parent, composeFilePath, service)
 }
 
-func runComposeUp(composeFilePath, service string) error {
+func runComposeUp(parent context.Context, composeFilePath, service string) error {
 	logFields := log.Fields{
 		"action":       "compose up",
 		"compose_file": composeFilePath,
@@ -100,7 +129,8 @@ func runComposeUp(composeFilePath, service string) error {
 
 	var stdoutBuf, stderrBuf bytes.Buffer
 
-	cmd := exec.Command("docker", composeUpArgs(composeFilePath, service)...)
+	cmd, commandCtx, cancel := commandWithTimeout(parent, "docker", composeUpArgs(composeFilePath, service)...)
+	defer cancel()
 	cmd.Stdout = &stdoutBuf
 	cmd.Stderr = &stderrBuf
 
@@ -108,9 +138,7 @@ func runComposeUp(composeFilePath, service string) error {
 	if err != nil {
 		logFields["stdout"] = stdoutBuf.String()
 		logFields["stderr"] = stderrBuf.String()
-		logFields["error"] = err
-		log.WithFields(logFields).Error("docker compose up failed")
-		return err
+		return logCommandFailure(commandCtx, logFields, "docker compose up failed", err)
 	}
 
 	logFields["stdout"] = stdoutBuf.String()
@@ -119,7 +147,7 @@ func runComposeUp(composeFilePath, service string) error {
 	return nil
 }
 
-func runComposePull(composeFilePath, service string) error {
+func runComposePull(parent context.Context, composeFilePath, service string) error {
 	log.WithFields(log.Fields{
 		"action":       "pull",
 		"service":      service,
@@ -128,23 +156,20 @@ func runComposePull(composeFilePath, service string) error {
 
 	var stdoutBuf, stderrBuf bytes.Buffer
 
-	cmd := exec.Command("docker", "compose", "-f", composeFilePath, "pull", service)
+	cmd, commandCtx, cancel := commandWithTimeout(parent, "docker", "compose", "-f", composeFilePath, "pull", service)
+	defer cancel()
 	cmd.Stdout = &stdoutBuf
 	cmd.Stderr = &stderrBuf
 
 	err := cmd.Run()
 	if err != nil {
-		log.WithFields(log.Fields{
+		return logCommandFailure(commandCtx, log.Fields{
 			"action":       "pull",
 			"service":      service,
 			"compose_file": composeFilePath,
 			"stdout":       stdoutBuf.String(),
 			"stderr":       stderrBuf.String(),
-			"error":        err,
-		}).Error("docker compose pull failed")
-		//TODO: Insert error handling for missing login credentials here if the login
-		//times out.
-		return err
+		}, "docker compose pull failed", err)
 	}
 
 	log.WithFields(log.Fields{
