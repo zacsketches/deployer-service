@@ -68,35 +68,53 @@ func runLogout() error {
 	return nil
 }
 
-func runComposeUp() error {
-	log.WithFields(log.Fields{
+func composeUpArgs(composeFilePath, service string) []string {
+	args := []string{"compose", "-f", composeFilePath, "up", "-d"}
+	if service != "" {
+		args = append(args, service)
+	}
+	return args
+}
+
+func runComposeUpAll(composeFilePath string) error {
+	return runComposeUp(composeFilePath, "")
+}
+
+func runComposeUpService(composeFilePath, service string) error {
+	return runComposeUp(composeFilePath, service)
+}
+
+func runComposeUp(composeFilePath, service string) error {
+	logFields := log.Fields{
 		"action":       "compose up",
-		"compose_file": dockerComposePath,
-	}).Info("starting docker compose up -d")
+		"compose_file": composeFilePath,
+	}
+	if service == "" {
+		logFields["scope"] = "all-services"
+	} else {
+		logFields["scope"] = "service"
+		logFields["service"] = service
+	}
+
+	log.WithFields(logFields).Info("starting docker compose up -d")
 
 	var stdoutBuf, stderrBuf bytes.Buffer
 
-	cmd := exec.Command("docker", "compose", "-f", dockerComposePath, "up", "-d")
+	cmd := exec.Command("docker", composeUpArgs(composeFilePath, service)...)
 	cmd.Stdout = &stdoutBuf
 	cmd.Stderr = &stderrBuf
 
 	err := cmd.Run()
 	if err != nil {
-		log.WithFields(log.Fields{
-			"action":       "compose up",
-			"compose_file": dockerComposePath,
-			"stdout":       stdoutBuf.String(),
-			"stderr":       stderrBuf.String(),
-			"error":        err,
-		}).Error("docker compose up failed")
+		logFields["stdout"] = stdoutBuf.String()
+		logFields["stderr"] = stderrBuf.String()
+		logFields["error"] = err
+		log.WithFields(logFields).Error("docker compose up failed")
 		return err
 	}
 
-	log.WithFields(log.Fields{
-		"action":       "compose up",
-		"compose_file": dockerComposePath,
-		"stdout":       stdoutBuf.String(),
-	}).Info("docker compose up successful")
+	logFields["stdout"] = stdoutBuf.String()
+	log.WithFields(logFields).Info("docker compose up successful")
 
 	return nil
 }

@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"os"
+	"sync/atomic"
 
 	"github.com/apex/log"
 )
@@ -16,6 +18,7 @@ var jwtKeyPath string
 var awsRegion string
 var ecrDomain string
 var debugMode bool
+var initializationComplete atomic.Bool
 
 // Injected at build time via build flag -ldflags "-X=main.version=$(git rev-parse --short HEAD)"
 var version string
@@ -45,12 +48,27 @@ func init() {
 	debugMode = debugModeEnv == "true"
 }
 
+func initializeService(login func() error, composeUpAll func(string) error) error {
+	initializationComplete.Store(false)
+
+	if err := login(); err != nil {
+		return fmt.Errorf("ECR login during startup: %w", err)
+	}
+	if err := composeUpAll(dockerComposePath); err != nil {
+		return fmt.Errorf("initial Docker Compose up during startup: %w", err)
+	}
+
+	initializationComplete.Store(true)
+	return nil
+}
+
 func main() {
 	loggingSetup()
 
 	// Launch the cluster
-	runLogin()
-	runComposeUp()
+	if err := initializeService(runLogin, runComposeUpAll); err != nil {
+		log.WithError(err).Fatal("deployer startup initialization failed")
+	}
 
 	// Configure the daemon
 	http.HandleFunc("/version", VersionHandler)

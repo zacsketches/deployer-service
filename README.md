@@ -12,11 +12,12 @@
   - `POST /logout` (debug mode only)
 - On startup it attempts:
   1. AWS ECR login
-  2. `docker compose up -d`
+  2. `docker compose -f <file> up -d` for all services
+- The HTTP server starts only after both startup steps succeed. A failed ECR login or initial Compose-up logs the failing stage and exits the process non-zero; `/health` is unavailable until initialization completes.
 - On deploy request it runs:
-  1. `docker compose pull <service>`
+  1. `docker compose -f <file> pull <service>`
   2. If pull fails, ECR login + retry pull once
-  3. `docker compose up -d`
+  3. `docker compose -f <file> up -d <service>`
 
 ## Runtime requirements
 
@@ -216,7 +217,9 @@ Body must be `text/plain` containing **base64-encoded JSON**:
 
 Current behavior notes:
 
-- `service` is used for `docker compose pull <service>`
+- `service` is required and is used for both `docker compose pull <service>` and `docker compose up -d <service>`
+- `/deploy` always reconciles only the requested service; it has no full-stack deployment mode
+- Full-stack reconciliation occurs only during daemon startup
 - Image names/tags come from the compose file referenced by `DOCKER_COMPOSE_FILE`
 
 Example request:

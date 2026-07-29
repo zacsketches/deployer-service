@@ -82,7 +82,7 @@ func DeployHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := runComposeUp(); err != nil {
+	if err := runComposeUpService(dockerComposePath, req.Service); err != nil {
 		//Service error logging completed in the exec function
 		http.Error(w, "unable to update service", http.StatusInternalServerError)
 		return
@@ -124,6 +124,16 @@ func HealthHandler(w http.ResponseWriter, r *http.Request) {
 			"path":   r.URL.Path,
 		}).Warn("invalid method on /health")
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if !initializationComplete.Load() {
+		log.WithFields(log.Fields{
+			"method": r.Method,
+			"ip":     ip,
+			"path":   r.URL.Path,
+		}).Warn("health check requested before initialization completed")
+		http.Error(w, "initialization incomplete", http.StatusServiceUnavailable)
 		return
 	}
 
